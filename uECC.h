@@ -21,34 +21,11 @@ Possible values for uECC_PLATFORM are defined below: */
 If uECC_WORD_SIZE is not explicitly defined then it will be automatically set based on your
 platform. */
 
-<<<<<<< HEAD
-/* Inline assembly options.
-uECC_asm_none  - Use standard C99 only.
-uECC_asm_small - Use GCC inline assembly for the target platform (if available), optimized for
-                 minimum size.
-uECC_asm_fast  - Use GCC inline assembly optimized for maximum speed. */
-#define uECC_asm_none  0
-#define uECC_asm_small 1
-#define uECC_asm_fast  2
-#ifndef uECC_ASM
-    #define uECC_ASM uECC_asm_fast
-#endif
-
-/* Curve selection options. */
-#define uECC_secp160r1 1
-#define uECC_secp192r1 2
-#define uECC_secp256r1 3
-#define uECC_secp256k1 4
-#define uECC_secp224r1 5
-#ifndef uECC_CURVE
-    #define uECC_CURVE uECC_secp192r1
-=======
 /* Optimization level; trade speed for code size.
    Larger values produce code that is faster but larger.
    Currently supported values are 0 - 3; 0 is unusably slow for most applications. */
 #ifndef uECC_OPTIMIZATION_LEVEL
     #define uECC_OPTIMIZATION_LEVEL 2
->>>>>>> upstream/master
 #endif
 
 /* uECC_SQUARE_FUNC - If enabled (defined as nonzero), this will cause a specific function to be
