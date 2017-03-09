@@ -3,6 +3,22 @@
 #ifndef _UECC_ASM_AVR_H_
 #define _UECC_ASM_AVR_H_
 
+#if (uECC_SUPPORTS_secp256r1 || uECC_SUPPORTS_secp256k1)
+    #define uECC_MIN_WORDS 32
+#endif
+#if uECC_SUPPORTS_secp224r1
+    #undef uECC_MIN_WORDS
+    #define uECC_MIN_WORDS 28
+#endif
+#if uECC_SUPPORTS_secp192r1
+    #undef uECC_MIN_WORDS
+    #define uECC_MIN_WORDS 24
+#endif
+#if uECC_SUPPORTS_secp160r1
+    #undef uECC_MIN_WORDS
+    #define uECC_MIN_WORDS 20
+#endif
+
 #if __AVR_HAVE_EIJMP_EICALL__
     #define IJMP "eijmp \n\t"
 #else
@@ -189,6 +205,117 @@ uECC_VLI_API uECC_word_t uECC_vli_sub(uECC_word_t *result,
 }
 #define asm_sub 1
 
+#if (uECC_OPTIMIZATION_LEVEL >= 3)
+
+#include "asm_avr_mult_square.inc"
+
+__attribute((noinline))
+uECC_VLI_API void uECC_vli_mult(uECC_word_t *result,
+                                const uECC_word_t *left,
+                                const uECC_word_t *right,
+                                wordcount_t num_words) {
+    /* num_words should already be in r18. */
+    register wordcount_t r18 __asm__("r18") = num_words;
+    
+    __asm__ volatile (
+        "push r18 \n\t"
+#if (uECC_MIN_WORDS == 20)
+        FAST_MULT_ASM_20
+        "pop r18 \n\t"
+    #if (uECC_MAX_WORDS > 20)
+        FAST_MULT_ASM_20_TO_24
+    #endif
+    #if (uECC_MAX_WORDS > 24)
+        FAST_MULT_ASM_24_TO_28
+    #endif
+    #if (uECC_MAX_WORDS > 28)
+        FAST_MULT_ASM_28_TO_32
+    #endif
+#elif (uECC_MIN_WORDS == 24)
+        FAST_MULT_ASM_24
+        "pop r18 \n\t"
+    #if (uECC_MAX_WORDS > 24)
+        FAST_MULT_ASM_24_TO_28
+    #endif
+    #if (uECC_MAX_WORDS > 28)
+        FAST_MULT_ASM_28_TO_32
+    #endif
+#elif (uECC_MIN_WORDS == 28)
+        FAST_MULT_ASM_28
+        "pop r18 \n\t"
+    #if (uECC_MAX_WORDS > 28)
+        FAST_MULT_ASM_28_TO_32
+    #endif
+#elif (uECC_MIN_WORDS == 32)
+        FAST_MULT_ASM_32
+        "pop r18 \n\t"
+#endif
+        "2: \n\t"
+        "eor r1, r1 \n\t"
+        : "+x" (left), "+y" (right), "+z" (result)
+        : "r" (r18)
+        : "r0", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
+          "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r19", "r20",
+          "r21", "r22", "r23", "r24", "r25", "cc"
+    );
+}
+#define asm_mult 1
+
+#if uECC_SQUARE_FUNC
+__attribute((noinline))
+uECC_VLI_API void uECC_vli_square(uECC_word_t *result,
+                                  const uECC_word_t *left,
+                                  wordcount_t num_words) {
+    /* num_words should already be in r20. */
+    register wordcount_t r20 __asm__("r20") = num_words;
+    
+    __asm__ volatile (
+        "push r20 \n\t"
+#if (uECC_MIN_WORDS == 20)
+        FAST_SQUARE_ASM_20
+        "pop r20 \n\t"
+    #if (uECC_MAX_WORDS > 20)
+        FAST_SQUARE_ASM_20_TO_24
+    #endif
+    #if (uECC_MAX_WORDS > 24)
+        FAST_SQUARE_ASM_24_TO_28
+    #endif
+    #if (uECC_MAX_WORDS > 28)
+        FAST_SQUARE_ASM_28_TO_32
+    #endif
+#elif (uECC_MIN_WORDS == 24)
+        FAST_SQUARE_ASM_24
+        "pop r20 \n\t"
+    #if (uECC_MAX_WORDS > 24)
+        FAST_SQUARE_ASM_24_TO_28
+    #endif
+    #if (uECC_MAX_WORDS > 28)
+        FAST_SQUARE_ASM_28_TO_32
+    #endif
+#elif (uECC_MIN_WORDS == 28)
+        FAST_SQUARE_ASM_28
+        "pop r20 \n\t"
+    #if (uECC_MAX_WORDS > 28)
+        FAST_SQUARE_ASM_28_TO_32
+    #endif
+#elif (uECC_MIN_WORDS == 32)
+        FAST_SQUARE_ASM_32
+        "pop r20 \n\t"
+#endif
+        "2: \n\t"
+        "eor r1, r1 \n\t"
+        : "+x" (left), "+z" (result)
+        : "r" (r20)
+        : "r0", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10",
+          "r11", "r12", "r13", "r14", "r15", "r16", "r17", "r18", "r19",
+          "r21", "r22", "r23", "r24", "r25", "r28", "r29", "cc"
+    );
+}
+#define asm_square 1
+#endif /* uECC_SQUARE_FUNC */
+
+#endif /* (uECC_OPTIMIZATION_LEVEL >= 3) */
+
 #if uECC_SUPPORTS_secp160r1
 static const struct uECC_Curve_t curve_secp160r1;
 static void vli_mmod_fast_secp160r1(uECC_word_t *result, uECC_word_t *product) {
@@ -360,7 +487,7 @@ static void vli_mmod_fast_secp160r1(uECC_word_t *result, uECC_word_t *product) {
         
         : "+x" (product), [carry] "+r" (carry)
         : "y" (result)
-        : "r0", "r18", "r19", "r30", "r31", "cc", "memory"
+        : "r0", "r18", "r19", "r30", "r31", "cc"
     );
 
     if (carry > 0) {
@@ -377,9 +504,9 @@ static void vli_mmod_fast_secp160r1(uECC_word_t *result, uECC_word_t *product) {
 #define asm_mmod_fast_secp160r1 1
 #endif /* uECC_SUPPORTS_secp160r1 */
 
-#if uECC_SUPPORTS_secp256r1
-static const struct uECC_Curve_t curve_secp256r1;
-static void vli_mmod_fast_secp256r1(uECC_word_t *result, uECC_word_t *product) {
+#if uECC_SUPPORTS_secp256k1
+static const struct uECC_Curve_t curve_secp256k1;
+static void vli_mmod_fast_secp256k1(uECC_word_t *result, uECC_word_t *product) {
     uint8_t carry = 0;
     __asm__ volatile (
         "in r30, __SP_L__ \n\t"
@@ -685,24 +812,26 @@ static void vli_mmod_fast_secp256r1(uECC_word_t *result, uECC_word_t *product) {
         
         : "+x" (product), [carry] "+r" (carry)
         : "y" (result)
-        : "r0", "r18", "r19", "r20", "r21", "r22", "r23", "r24", "r25", "r30", "r31", "cc", "memory"
+        : "r0", "r18", "r19", "r20", "r21", "r22", "r23", "r24", "r25", "r30", "r31", "cc"
     );
     
     if (carry > 0) {
         --carry;
-        uECC_vli_sub(result, result, curve_secp256r1.p, 32);
+        uECC_vli_sub(result, result, curve_secp256k1.p, 32);
     }
     if (carry > 0) {
-        uECC_vli_sub(result, result, curve_secp256r1.p, 32);
+        uECC_vli_sub(result, result, curve_secp256k1.p, 32);
     }
-    if (uECC_vli_cmp_unsafe(result, curve_secp256r1.p, 32) > 0) {
-        uECC_vli_sub(result, result, curve_secp256r1.p, 32);
+    if (uECC_vli_cmp_unsafe(result, curve_secp256k1.p, 32) > 0) {
+        uECC_vli_sub(result, result, curve_secp256k1.p, 32);
     }
 }
-#define asm_mmod_fast_secp256r1 1
-#endif /* uECC_SUPPORTS_secp256r1 */
+#define asm_mmod_fast_secp256k1 1
+#endif /* uECC_SUPPORTS_secp256k1 */
 
 #endif /* (uECC_OPTIMIZATION_LEVEL >= 2) */
+
+/* ---- "Small" implementations ---- */
 
 #if !asm_add
 uECC_VLI_API uECC_word_t uECC_vli_add(uECC_word_t *result,
